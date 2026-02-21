@@ -5,7 +5,9 @@ import javafx.geometry.Insets;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
+import javafx.scene.control.TextField;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.GridPane;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.text.Font;
@@ -20,9 +22,9 @@ public class VentanaPrincipal extends Application {
         BorderPane layoutPrincipal = new BorderPane();
 
         // 2. Crear el Menú Lateral (Izquierda)
-        VBox menuLateral = new VBox(15); // 15 es el espacio entre botones
-        menuLateral.setPadding(new Insets(20)); // Margen interior
-        menuLateral.setStyle("-fx-background-color: #2c3e50;"); // Color de fondo oscuro
+        VBox menuLateral = new VBox(15);
+        menuLateral.setPadding(new Insets(20));
+        menuLateral.setStyle("-fx-background-color: #2c3e50;");
 
         Label tituloMenu = new Label("Menú Principal");
         tituloMenu.setTextFill(javafx.scene.paint.Color.WHITE);
@@ -32,10 +34,12 @@ public class VentanaPrincipal extends Application {
         Button btnPersonas = new Button("Gestión de Personas");
         Button btnSalir = new Button("Salir del Sistema");
 
-        // Hacemos que los botones ocupen todo el ancho del menú
         btnEventos.setMaxWidth(Double.MAX_VALUE);
         btnPersonas.setMaxWidth(Double.MAX_VALUE);
         btnSalir.setMaxWidth(Double.MAX_VALUE);
+
+        // Al hacer clic en el botón del menú, el centro del BorderPane cambia al formulario
+        btnPersonas.setOnAction(e -> layoutPrincipal.setCenter(crearFormularioPersonas()));
 
         // Agregamos todo al menú lateral
         menuLateral.getChildren().addAll(tituloMenu, btnEventos, btnPersonas, btnSalir);
@@ -51,14 +55,96 @@ public class VentanaPrincipal extends Application {
         layoutPrincipal.setCenter(areaTrabajo);
 
         // 5. Configurar la Escena y mostrar
-        Scene escena = new Scene(layoutPrincipal, 800, 600); // Pantalla más grande
+        Scene escena = new Scene(layoutPrincipal, 800, 600);
         primaryStage.setTitle("Gestión de Eventos Culturales - Misiones");
         primaryStage.setScene(escena);
         primaryStage.show();
 
         // Acción básica para el botón salir
         btnSalir.setOnAction(e -> primaryStage.close());
-    }
+
+    } // <--- ¡AQUÍ TERMINA EL MÉTODO START!
+
+    // --- AQUÍ EMPIEZA EL NUEVO MÉTODO ---
+    private GridPane crearFormularioPersonas() {
+        GridPane formulario = new GridPane();
+        formulario.setPadding(new Insets(40));
+        formulario.setVgap(15);
+        formulario.setHgap(10);
+        formulario.setAlignment(javafx.geometry.Pos.TOP_CENTER);
+
+        Label lblTitulo = new Label("Registrar Nueva Persona");
+        lblTitulo.setFont(new Font("Arial", 22));
+        lblTitulo.setStyle("-fx-font-weight: bold;");
+        formulario.add(lblTitulo, 0, 0, 2, 1);
+
+        TextField txtNombre = new TextField();
+        txtNombre.setPromptText("Ej: Kevin Dominguez");
+
+        TextField txtDni = new TextField();
+        txtDni.setPromptText("Sin puntos ni espacios");
+
+        TextField txtTelefono = new TextField();
+        TextField txtCorreo = new TextField();
+
+        formulario.add(new Label("Nombre Completo:"), 0, 1);
+        formulario.add(txtNombre, 1, 1);
+
+        formulario.add(new Label("DNI:"), 0, 2);
+        formulario.add(txtDni, 1, 2);
+
+        formulario.add(new Label("Teléfono:"), 0, 3);
+        formulario.add(txtTelefono, 1, 3);
+
+        formulario.add(new Label("Correo Electrónico:"), 0, 4);
+        formulario.add(txtCorreo, 1, 4);
+
+        Button btnGuardar = new Button("Guardar Persona");
+        btnGuardar.setStyle("-fx-background-color: #27ae60; -fx-text-fill: white; -fx-font-weight: bold;");
+        formulario.add(btnGuardar, 1, 5);
+
+        // EVENTO: ¿Qué pasa al hacer clic en Guardar?
+        btnGuardar.setOnAction(e -> {
+            // 1. Capturamos los datos de las cajitas de texto
+            String nombre = txtNombre.getText();
+            String dni = txtDni.getText();
+            String telefono = txtTelefono.getText();
+            String correo = txtCorreo.getText();
+
+            // 2. Creamos el objeto de tu Modelo (Asegurate de que importe la clase Persona correcta)
+            Modelo.Persona nuevaPersona = new Modelo.Persona(nombre, dni, telefono, correo);
+
+            // 3. Conectamos a la base de datos (Igual que hicimos en el Main)
+            jakarta.persistence.EntityManagerFactory emf = jakarta.persistence.Persistence.createEntityManagerFactory("EventosPU");
+            jakarta.persistence.EntityManager em = emf.createEntityManager();
+
+            try {
+                em.getTransaction().begin();
+                em.persist(nuevaPersona); // ¡Guardamos el objeto!
+                em.getTransaction().commit();
+
+                System.out.println("¡Éxito Total! " + nombre + " se guardó en la base de datos.");
+
+                // 4. Limpiamos los campos para poder cargar otro
+                txtNombre.clear();
+                txtDni.clear();
+                txtTelefono.clear();
+                txtCorreo.clear();
+
+            } catch (Exception ex) {
+                if (em.getTransaction().isActive()) {
+                    em.getTransaction().rollback();
+                }
+                System.err.println("Error al guardar en la base de datos:");
+                ex.printStackTrace();
+            } finally {
+                em.close();
+                emf.close();
+            }
+        });
+
+        return formulario;
+    } // <--- AQUÍ TERMINA EL MÉTODO DEL FORMULARIO
 
     public static void main(String[] args) {
         launch(args);
