@@ -38,8 +38,11 @@ public class VentanaPrincipal extends Application {
         btnPersonas.setMaxWidth(Double.MAX_VALUE);
         btnSalir.setMaxWidth(Double.MAX_VALUE);
 
-        // Al hacer clic en el botón del menú, el centro del BorderPane cambia al formulario
+        // Al hacer clic en Personas, muestra su formulario
         btnPersonas.setOnAction(e -> layoutPrincipal.setCenter(crearFormularioPersonas()));
+
+        // ¡AGREGÁ ESTA LÍNEA! Al hacer clic en Eventos, muestra este nuevo formulario
+        btnEventos.setOnAction(e -> layoutPrincipal.setCenter(crearFormularioEventos()));
 
         // Agregamos todo al menú lateral
         menuLateral.getChildren().addAll(tituloMenu, btnEventos, btnPersonas, btnSalir);
@@ -145,6 +148,63 @@ public class VentanaPrincipal extends Application {
 
         return formulario;
     } // <--- AQUÍ TERMINA EL MÉTODO DEL FORMULARIO
+
+    private GridPane crearFormularioEventos() {
+        GridPane formulario = new GridPane();
+        formulario.setPadding(new Insets(40));
+        formulario.setVgap(15);
+        formulario.setHgap(10);
+        formulario.setAlignment(javafx.geometry.Pos.TOP_CENTER);
+
+        Label lblTitulo = new Label("Registrar Nuevo Evento");
+        lblTitulo.setFont(new Font("Arial", 22));
+        lblTitulo.setStyle("-fx-font-weight: bold;");
+        formulario.add(lblTitulo, 0, 0, 2, 1);
+
+        // --- LA MAGIA PARA LA HERENCIA ---
+        // Usamos un ComboBox (lista desplegable) para que el municipio elija qué clase instanciar
+        javafx.scene.control.ComboBox<String> cmbTipoEvento = new javafx.scene.control.ComboBox<>();
+        cmbTipoEvento.getItems().addAll("Feria", "Concierto", "Exposición", "Taller", "Ciclo de Cine");
+        cmbTipoEvento.setPromptText("Seleccione el tipo");
+
+        // --- CAMPOS DE LA CLASE PADRE (Evento) ---
+        TextField txtNombre = new TextField();
+        txtNombre.setPromptText("Nombre del evento");
+
+        // DatePicker es un widget genial de JavaFX que te abre un calendardio
+        javafx.scene.control.DatePicker dpFecha = new javafx.scene.control.DatePicker();
+
+        TextField txtDuracion = new TextField();
+        txtDuracion.setPromptText("Duración en horas");
+
+        // --- AGREGAMOS TODO A LA GRILLA ---
+        formulario.add(new Label("Tipo de Evento:"), 0, 1);
+        formulario.add(cmbTipoEvento, 1, 1);
+
+        formulario.add(new Label("Nombre:"), 0, 2);
+        formulario.add(txtNombre, 1, 2);
+
+        formulario.add(new Label("Fecha de Inicio:"), 0, 3);
+        formulario.add(dpFecha, 1, 3);
+
+        formulario.add(new Label("Duración (hs):"), 0, 4);
+        formulario.add(txtDuracion, 1, 4);
+
+        // Botón (Por ahora dice Continuar, porque luego mostraremos los campos específicos)
+        Button btnContinuar = new Button("Continuar");
+        btnContinuar.setStyle("-fx-background-color: #3498db; -fx-text-fill: white; -fx-font-weight: bold;");
+        formulario.add(btnContinuar, 1, 5);
+
+        // EVENTO DEL BOTÓN
+        btnContinuar.setOnAction(e -> {
+            String tipoSeleccionado = cmbTipoEvento.getValue();
+            System.out.println("El usuario quiere crear un/a: " + tipoSeleccionado);
+            System.out.println("Nombre: " + txtNombre.getText());
+            // Después del partido o mañana, haremos que este botón muestre los campos de las clases hijas
+        });
+
+        return formulario;
+    }
 
     public static void main(String[] args) {
         launch(args);
