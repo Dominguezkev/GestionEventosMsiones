@@ -25,6 +25,10 @@ public class Persona {
     }
 
     // Getters and Setters básico
+    public Long getId() {
+        return id;
+    }
+
     public String getNombreCompleto() {
         return nombreCompleto;
     }
@@ -56,4 +60,5 @@ public class Persona {
     public void setCorreoElectronico(String correoElectronico) {
         this.correoElectronico = correoElectronico;
     }
+
 }
