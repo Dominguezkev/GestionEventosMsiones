@@ -18,9 +18,9 @@ public class CicloCine extends Evento{
 
     }
 
-    public CicloCine(String nombre, LocalDateTime fechaInicio, int duracionHoras, List<String> listaPeliculas, boolean tieneCharla) {
-        super(nombre, fechaInicio, duracionHoras);
-        this.listaPeliculas = listaPeliculas;
+    // Constructor completo para usar desde la interfaz gráfica
+    public CicloCine(String nombre, java.time.LocalDateTime fechaInicio, int duracionHoras, boolean tieneCharla) {
+        super(nombre, fechaInicio, duracionHoras); // Le pasa los datos básicos al padre (Evento)
         this.tieneCharla = tieneCharla;
     }
 

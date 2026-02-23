@@ -41,7 +41,7 @@ public class VentanaPrincipal extends Application {
         // Al hacer clic en Personas, muestra su formulario
         btnPersonas.setOnAction(e -> layoutPrincipal.setCenter(crearFormularioPersonas()));
 
-        // ¡AGREGÁ ESTA LÍNEA! Al hacer clic en Eventos, muestra este nuevo formulario
+        // ¡AGREGA ESTA LÍNEA! Al hacer clic en Eventos, muestra este nuevo formulario
         btnEventos.setOnAction(e -> layoutPrincipal.setCenter(crearFormularioEventos()));
 
         // Agregamos todo al menú lateral
@@ -161,46 +161,125 @@ public class VentanaPrincipal extends Application {
         lblTitulo.setStyle("-fx-font-weight: bold;");
         formulario.add(lblTitulo, 0, 0, 2, 1);
 
-        // --- LA MAGIA PARA LA HERENCIA ---
-        // Usamos un ComboBox (lista desplegable) para que el municipio elija qué clase instanciar
+        // --- CAMPOS BASE ---
         javafx.scene.control.ComboBox<String> cmbTipoEvento = new javafx.scene.control.ComboBox<>();
         cmbTipoEvento.getItems().addAll("Feria", "Concierto", "Exposición", "Taller", "Ciclo de Cine");
         cmbTipoEvento.setPromptText("Seleccione el tipo");
 
-        // --- CAMPOS DE LA CLASE PADRE (Evento) ---
         TextField txtNombre = new TextField();
         txtNombre.setPromptText("Nombre del evento");
-
-        // DatePicker es un widget genial de JavaFX que te abre un calendardio
         javafx.scene.control.DatePicker dpFecha = new javafx.scene.control.DatePicker();
-
         TextField txtDuracion = new TextField();
-        txtDuracion.setPromptText("Duración en horas");
+        txtDuracion.setPromptText("Duración en horas (Ej: 4)");
 
-        // --- AGREGAMOS TODO A LA GRILLA ---
+        // --- PREPARAMOS LOS CAMPOS ESPECÍFICOS (Invisibles por ahora) ---
+        // Feria
+        TextField txtStands = new TextField(); txtStands.setPromptText("Cantidad de Stands");
+        javafx.scene.control.CheckBox chkAireLibre = new javafx.scene.control.CheckBox("¿Es al aire libre?");
+        // Concierto
+        TextField txtArtistas = new TextField(); txtArtistas.setPromptText("Artistas (Separados por coma)");
+        javafx.scene.control.CheckBox chkGratis = new javafx.scene.control.CheckBox("¿Es gratuito?");
+        // Exposición
+        TextField txtArte = new TextField(); txtArte.setPromptText("Tipo de Arte");
+        TextField txtCurador = new TextField(); txtCurador.setPromptText("Curador");
+        // Taller
+        TextField txtCupo = new TextField(); txtCupo.setPromptText("Cupo Máximo");
+        TextField txtInstructor = new TextField(); txtInstructor.setPromptText("Instructor");
+        // Ciclo de Cine
+        javafx.scene.control.CheckBox chkCharla = new javafx.scene.control.CheckBox("¿Incluye charla posterior?");
+
         formulario.add(new Label("Tipo de Evento:"), 0, 1);
         formulario.add(cmbTipoEvento, 1, 1);
-
         formulario.add(new Label("Nombre:"), 0, 2);
         formulario.add(txtNombre, 1, 2);
-
         formulario.add(new Label("Fecha de Inicio:"), 0, 3);
         formulario.add(dpFecha, 1, 3);
-
         formulario.add(new Label("Duración (hs):"), 0, 4);
         formulario.add(txtDuracion, 1, 4);
 
-        // Botón (Por ahora dice Continuar, porque luego mostraremos los campos específicos)
-        Button btnContinuar = new Button("Continuar");
-        btnContinuar.setStyle("-fx-background-color: #3498db; -fx-text-fill: white; -fx-font-weight: bold;");
-        formulario.add(btnContinuar, 1, 5);
+        VBox panelDinamico = new VBox(10);
+        formulario.add(panelDinamico, 0, 5, 2, 1);
 
-        // EVENTO DEL BOTÓN
-        btnContinuar.setOnAction(e -> {
-            String tipoSeleccionado = cmbTipoEvento.getValue();
-            System.out.println("El usuario quiere crear un/a: " + tipoSeleccionado);
-            System.out.println("Nombre: " + txtNombre.getText());
-            // Después del partido o mañana, haremos que este botón muestre los campos de las clases hijas
+        // --- LÓGICA DE CAMBIO EN VIVO ---
+        cmbTipoEvento.setOnAction(e -> {
+            panelDinamico.getChildren().clear();
+            String tipo = cmbTipoEvento.getValue();
+
+            if ("Feria".equals(tipo)) panelDinamico.getChildren().addAll(new Label("Campos de Feria:"), txtStands, chkAireLibre);
+            else if ("Concierto".equals(tipo)) panelDinamico.getChildren().addAll(new Label("Campos de Concierto:"), txtArtistas, chkGratis);
+            else if ("Exposición".equals(tipo)) panelDinamico.getChildren().addAll(new Label("Campos de Exposición:"), txtArte, txtCurador);
+            else if ("Taller".equals(tipo)) panelDinamico.getChildren().addAll(new Label("Campos de Taller:"), txtCupo, txtInstructor);
+            else if ("Ciclo de Cine".equals(tipo)) panelDinamico.getChildren().addAll(new Label("Campos de Ciclo de Cine:"), chkCharla);
+        });
+
+        // --- BOTÓN GUARDAR Y CONEXIÓN A BASE DE DATOS ---
+        Button btnGuardar = new Button("Guardar Evento");
+        btnGuardar.setStyle("-fx-background-color: #27ae60; -fx-text-fill: white; -fx-font-weight: bold;");
+        formulario.add(btnGuardar, 1, 6);
+
+        btnGuardar.setOnAction(e -> {
+            // Validaciones básicas
+            if (cmbTipoEvento.getValue() == null || txtNombre.getText().isEmpty() || dpFecha.getValue() == null || txtDuracion.getText().isEmpty()) {
+                javafx.scene.control.Alert alerta = new javafx.scene.control.Alert(javafx.scene.control.Alert.AlertType.ERROR);
+                alerta.setContentText("Complete los campos base antes de continuar.");
+                alerta.showAndWait();
+                return;
+            }
+
+            try {
+                // Capturamos datos del padre
+                String tipo = cmbTipoEvento.getValue();
+                String nombre = txtNombre.getText();
+                java.time.LocalDateTime fecha = dpFecha.getValue().atStartOfDay(); // Convierte la fecha del calendario
+                int duracion = Integer.parseInt(txtDuracion.getText());
+
+                // Declaramos la variable padre vacía
+                Modelo.Evento nuevoEvento = null;
+
+                // HERENCIA EN ACCIÓN: Instanciamos a la hija correspondiente
+                if ("Feria".equals(tipo)) {
+                    int stands = Integer.parseInt(txtStands.getText());
+                    nuevoEvento = new Modelo.Feria(nombre, fecha, duracion, stands, chkAireLibre.isSelected());
+                } else if ("Concierto".equals(tipo)) {
+                    // Convertimos el texto separado por comas en una Lista de Strings
+                    java.util.List<String> artistas = java.util.Arrays.asList(txtArtistas.getText().split(","));
+                    nuevoEvento = new Modelo.Concierto(nombre, fecha, duracion, artistas, chkGratis.isSelected());
+                } else if ("Exposición".equals(tipo)) {
+                    nuevoEvento = new Modelo.Exposicion(nombre, fecha, duracion, txtArte.getText(), txtCurador.getText());
+                } else if ("Taller".equals(tipo)) {
+                    int cupo = Integer.parseInt(txtCupo.getText());
+                    nuevoEvento = new Modelo.Taller(nombre, fecha, duracion, cupo, txtInstructor.getText(), true); // Asumo true como presencial por ahora
+                } else if ("Ciclo de Cine".equals(tipo)) {
+                    nuevoEvento = new Modelo.CicloCine(nombre, fecha, duracion, chkCharla.isSelected());
+                }
+
+                // --- PERSISTENCIA JPA ---
+                jakarta.persistence.EntityManagerFactory emf = jakarta.persistence.Persistence.createEntityManagerFactory("EventosPU");
+                jakarta.persistence.EntityManager em = emf.createEntityManager();
+
+                em.getTransaction().begin();
+                em.persist(nuevoEvento); // JPA sabe en qué tabla guardarlo gracias a la herencia
+                em.getTransaction().commit();
+
+                // Mensaje de Éxito
+                javafx.scene.control.Alert alertaExito = new javafx.scene.control.Alert(javafx.scene.control.Alert.AlertType.INFORMATION);
+                alertaExito.setContentText("¡El evento " + nombre + " se guardó en la base de datos exitosamente!");
+                alertaExito.showAndWait();
+
+                em.close();
+                emf.close();
+
+                // Limpiamos los campos (Opcional, para que quede prolijo)
+                txtNombre.clear(); txtDuracion.clear(); txtStands.clear(); txtArtistas.clear();
+
+            } catch (NumberFormatException ex) {
+                // Por si el usuario escribe letras en donde van números
+                javafx.scene.control.Alert alertaNum = new javafx.scene.control.Alert(javafx.scene.control.Alert.AlertType.WARNING);
+                alertaNum.setContentText("Cuidado: En duración, stands o cupos debes ingresar solo números.");
+                alertaNum.showAndWait();
+            } catch (Exception ex) {
+                ex.printStackTrace(); // Imprime el error real en la consola de IntelliJ
+            }
         });
 
         return formulario;
