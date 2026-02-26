@@ -127,39 +127,45 @@ public class VentanaPrincipal extends Application {
         btnGuardar.setStyle("-fx-background-color: #27ae60; -fx-text-fill: white; -fx-font-weight: bold;");
         formulario.add(btnGuardar, 1, 5);
 
-        // EVENTO: ¿Qué pasa al hacer clic en Guardar?
         btnGuardar.setOnAction(e -> {
-            // 1. Capturamos los datos de las cajitas de texto
-            String nombre = txtNombre.getText();
-            String dni = txtDni.getText();
-            String telefono = txtTelefono.getText();
-            String correo = txtCorreo.getText();
+            // 1. LA BARRERA DE SEGURIDAD
+            if (txtNombre.getText().trim().isEmpty() || txtDni.getText().trim().isEmpty() || txtCorreo.getText().trim().isEmpty()) {
+                javafx.scene.control.Alert alerta = new javafx.scene.control.Alert(javafx.scene.control.Alert.AlertType.ERROR);
+                alerta.setHeaderText("Faltan Datos");
+                alerta.setContentText("Por favor, complete al menos el Nombre, el DNI y el Correo antes de guardar.");
+                alerta.showAndWait();
+                return; // Corta la ejecución acá, no llega a la base de datos
+            }
 
-            // 2. Creamos el objeto de tu Modelo (Asegurate de que importe la clase Persona correcta)
-            Modelo.Persona nuevaPersona = new Modelo.Persona(nombre, dni, telefono, correo);
-
-            // 3. Conectamos a la base de datos (Igual que hicimos en el Main)
+            // 2. Si pasó la validación, guarda en la BD
             jakarta.persistence.EntityManagerFactory emf = jakarta.persistence.Persistence.createEntityManagerFactory("EventosPU");
             jakarta.persistence.EntityManager em = emf.createEntityManager();
 
             try {
                 em.getTransaction().begin();
-                em.persist(nuevaPersona); // ¡Guardamos el objeto!
+
+                // Creamos la persona con los textos
+                Modelo.Persona nuevaPersona = new Modelo.Persona(
+                        txtNombre.getText(),
+                        txtDni.getText(),
+                        txtTelefono.getText(), // El teléfono puede quedar vacío si no lo validamos arriba
+                        txtCorreo.getText()
+                );
+
+                em.persist(nuevaPersona);
                 em.getTransaction().commit();
 
-                System.out.println("¡Éxito Total! " + nombre + " se guardó en la base de datos.");
+                javafx.scene.control.Alert exito = new javafx.scene.control.Alert(javafx.scene.control.Alert.AlertType.INFORMATION);
+                exito.setContentText("Persona registrada exitosamente.");
+                exito.showAndWait();
 
-                // 4. Limpiamos los campos para poder cargar otro
+                // Limpiamos los campos
                 txtNombre.clear();
                 txtDni.clear();
                 txtTelefono.clear();
                 txtCorreo.clear();
 
             } catch (Exception ex) {
-                if (em.getTransaction().isActive()) {
-                    em.getTransaction().rollback();
-                }
-                System.err.println("Error al guardar en la base de datos:");
                 ex.printStackTrace();
             } finally {
                 em.close();
