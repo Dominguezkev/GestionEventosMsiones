@@ -34,6 +34,8 @@ public class VentanaPrincipal extends Application {
         Button btnListadoEventos = new Button("Ver Listado de Eventos"); // ¡Nuevo botón!
         Button btnPersonas = new Button("Registrar Persona");
         Button btnAsignar = new Button("Asignar Organizadores");
+        Button btnEstado = new Button("Cambiar Estado");
+        Button btnInscripcion = new Button("Inscribir Participante");
         Button btnSalir = new Button("Salir del Sistema");
 
 
@@ -41,6 +43,8 @@ public class VentanaPrincipal extends Application {
         btnListadoEventos.setMaxWidth(Double.MAX_VALUE); // Expandir el botón
         btnPersonas.setMaxWidth(Double.MAX_VALUE);
         btnAsignar.setMaxWidth(Double.MAX_VALUE);
+        btnEstado.setMaxWidth(Double.MAX_VALUE);
+        btnInscripcion.setMaxWidth(Double.MAX_VALUE);
         btnSalir.setMaxWidth(Double.MAX_VALUE);
 
 
@@ -49,11 +53,13 @@ public class VentanaPrincipal extends Application {
         btnListadoEventos.setOnAction(e -> layoutPrincipal.setCenter(crearPanelListadoEventos())); // ¡Conectamos la tabla!
         btnPersonas.setOnAction(e -> layoutPrincipal.setCenter(crearFormularioPersonas()));
         btnAsignar.setOnAction(e -> layoutPrincipal.setCenter(crearPanelAsignacion()));
+        btnEstado.setOnAction(e -> layoutPrincipal.setCenter(crearPanelCambioEstado()));
+        btnInscripcion.setOnAction(e -> layoutPrincipal.setCenter(crearPanelInscripcion()));
         btnSalir.setOnAction(e -> primaryStage.close());
 
 
         // Acordate de agregarlo al VBox del menú lateral:
-        menuLateral.getChildren().addAll(tituloMenu, btnEventos, btnListadoEventos, btnPersonas, btnSalir, btnAsignar);
+        menuLateral.getChildren().addAll(tituloMenu, btnEventos, btnListadoEventos, btnPersonas, btnAsignar, btnEstado, btnInscripcion, btnSalir);
 
         // 3. Crear el Área de Trabajo (Centro)
         StackPane areaTrabajo = new StackPane();
@@ -90,7 +96,7 @@ public class VentanaPrincipal extends Application {
         formulario.add(lblTitulo, 0, 0, 2, 1);
 
         TextField txtNombre = new TextField();
-        txtNombre.setPromptText("Ej: Kevin Dominguez");
+        txtNombre.setPromptText("Ej: Juan Perez");
 
         TextField txtDni = new TextField();
         txtDni.setPromptText("Sin puntos ni espacios");
@@ -465,6 +471,185 @@ public class VentanaPrincipal extends Application {
         });
 
         panel.getChildren().addAll(lblTitulo, new Label("Evento:"), cmbEventos, new Label("Persona:"), cmbPersonas, btnAsignar);
+        return panel;
+    }
+
+
+    // Método para cambiar el estado de los eventos
+    private VBox crearPanelCambioEstado() {
+        VBox panel = new VBox(15);
+        panel.setPadding(new Insets(40));
+        panel.setAlignment(javafx.geometry.Pos.TOP_CENTER);
+
+        Label lblTitulo = new Label("Actualizar Estado del Evento");
+        lblTitulo.setFont(new Font("Arial", 22));
+        lblTitulo.setStyle("-fx-font-weight: bold;");
+
+        // 1. ComboBox de Eventos
+        javafx.scene.control.ComboBox<String> cmbEventos = new javafx.scene.control.ComboBox<>();
+        cmbEventos.setPromptText("Seleccione un Evento");
+        cmbEventos.setPrefWidth(350);
+
+        // 2. ComboBox de Estados (Usa tu enum 'Estado')
+        javafx.scene.control.ComboBox<Modelo.Estado> cmbEstados = new javafx.scene.control.ComboBox<>();
+        cmbEstados.getItems().addAll(Modelo.Estado.values());
+        cmbEstados.setPromptText("Seleccione el nuevo estado");
+        cmbEstados.setPrefWidth(350);
+
+        // 3. Traer los eventos de la BD
+        jakarta.persistence.EntityManagerFactory emf = jakarta.persistence.Persistence.createEntityManagerFactory("EventosPU");
+        jakarta.persistence.EntityManager em = emf.createEntityManager();
+
+        try {
+            java.util.List<Modelo.Evento> eventos = em.createQuery("SELECT e FROM Evento e", Modelo.Evento.class).getResultList();
+            for (Modelo.Evento e : eventos) {
+                // Mostramos ID, Nombre y el Estado Actual
+                cmbEventos.getItems().add(e.getId() + " - " + e.getNombre() + " (" + e.getEstado() + ")");
+            }
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        } finally {
+            em.close();
+        }
+
+        // 4. Botón de Actualización
+        Button btnActualizar = new Button("Guardar Nuevo Estado");
+        btnActualizar.setStyle("-fx-background-color: #e67e22; -fx-text-fill: white; -fx-font-weight: bold;");
+
+        btnActualizar.setOnAction(e -> {
+            if (cmbEventos.getValue() == null || cmbEstados.getValue() == null) {
+                javafx.scene.control.Alert alerta = new javafx.scene.control.Alert(javafx.scene.control.Alert.AlertType.ERROR);
+                alerta.setContentText("Por favor, seleccione un evento y un estado.");
+                alerta.showAndWait();
+                return;
+            }
+
+            // Extraemos el ID del ComboBox
+            Long idEvento = Long.parseLong(cmbEventos.getValue().split(" - ")[0]);
+            Modelo.Estado nuevoEstado = cmbEstados.getValue();
+
+            jakarta.persistence.EntityManager emUpdate = emf.createEntityManager();
+            try {
+                emUpdate.getTransaction().begin();
+                Modelo.Evento evento = emUpdate.find(Modelo.Evento.class, idEvento);
+
+                // Usamos el setter que tenés en tu clase Evento
+                evento.setEstado(nuevoEstado);
+
+                emUpdate.merge(evento); // Actualizamos en la BD
+                emUpdate.getTransaction().commit();
+
+                javafx.scene.control.Alert exito = new javafx.scene.control.Alert(javafx.scene.control.Alert.AlertType.INFORMATION);
+                exito.setContentText("El estado del evento '" + evento.getNombre() + "' se actualizó a: " + nuevoEstado);
+                exito.showAndWait();
+
+                cmbEventos.getSelectionModel().clearSelection();
+                cmbEstados.getSelectionModel().clearSelection();
+
+            } catch(Exception ex) {
+                System.err.println("Error al actualizar el estado:");
+                ex.printStackTrace();
+            } finally {
+                emUpdate.close();
+            }
+        });
+
+        panel.getChildren().addAll(lblTitulo, new Label("Evento a modificar:"), cmbEventos, new Label("Nuevo Estado:"), cmbEstados, btnActualizar);
+        return panel;
+    }
+
+    // Método para Inscribir Participantes
+    private VBox crearPanelInscripcion() {
+        VBox panel = new VBox(15);
+        panel.setPadding(new Insets(40));
+        panel.setAlignment(javafx.geometry.Pos.TOP_CENTER);
+
+        Label lblTitulo = new Label("Inscribir Participante a Evento");
+        lblTitulo.setFont(new Font("Arial", 22));
+        lblTitulo.setStyle("-fx-font-weight: bold;");
+
+        // 1. Listas desplegables
+        javafx.scene.control.ComboBox<String> cmbEventos = new javafx.scene.control.ComboBox<>();
+        cmbEventos.setPromptText("Seleccione un Evento");
+        cmbEventos.setPrefWidth(350);
+
+        javafx.scene.control.ComboBox<String> cmbPersonas = new javafx.scene.control.ComboBox<>();
+        cmbPersonas.setPromptText("Seleccione una Persona (Participante)");
+        cmbPersonas.setPrefWidth(350);
+
+        // 2. Traer datos de la BD
+        jakarta.persistence.EntityManagerFactory emf = jakarta.persistence.Persistence.createEntityManagerFactory("EventosPU");
+        jakarta.persistence.EntityManager em = emf.createEntityManager();
+
+        try {
+            java.util.List<Modelo.Evento> eventos = em.createQuery("SELECT e FROM Evento e", Modelo.Evento.class).getResultList();
+            for (Modelo.Evento e : eventos) {
+                cmbEventos.getItems().add(e.getId() + " - " + e.getNombre() + " (" + e.getEstado() + ")");
+            }
+
+            java.util.List<Modelo.Persona> personas = em.createQuery("SELECT p FROM Persona p", Modelo.Persona.class).getResultList();
+            for (Modelo.Persona p : personas) {
+                // Asumo que tenés p.getNombre() o p.getNombreCompleto()
+                cmbPersonas.getItems().add(p.getId() + " - " + p.getNombreCompleto());
+            }
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        } finally {
+            em.close();
+        }
+
+        // 3. Botón de Inscripción
+        Button btnInscribir = new Button("Inscribir Participante");
+        btnInscribir.setStyle("-fx-background-color: #2c3e50; -fx-text-fill: white; -fx-font-weight: bold;");
+
+        btnInscribir.setOnAction(e -> {
+            if (cmbEventos.getValue() == null || cmbPersonas.getValue() == null) {
+                javafx.scene.control.Alert alerta = new javafx.scene.control.Alert(javafx.scene.control.Alert.AlertType.ERROR);
+                alerta.setContentText("Seleccione un evento y una persona.");
+                alerta.showAndWait();
+                return;
+            }
+
+            Long idEvento = Long.parseLong(cmbEventos.getValue().split(" - ")[0]);
+            Long idPersona = Long.parseLong(cmbPersonas.getValue().split(" - ")[0]);
+
+            jakarta.persistence.EntityManager emUpdate = emf.createEntityManager();
+            try {
+                emUpdate.getTransaction().begin();
+
+                Modelo.Evento evento = emUpdate.find(Modelo.Evento.class, idEvento);
+                Modelo.Persona persona = emUpdate.find(Modelo.Persona.class, idPersona);
+
+                // ¡ACÁ ESTÁ LA MAGIA! Llamamos a tu método de negocio
+                evento.inscribirParticipante(persona);
+
+                emUpdate.merge(evento);
+                emUpdate.getTransaction().commit();
+
+                javafx.scene.control.Alert exito = new javafx.scene.control.Alert(javafx.scene.control.Alert.AlertType.INFORMATION);
+                exito.setContentText("¡Inscripción exitosa! " + persona.getNombreCompleto() + " participará en " + evento.getNombre());
+                exito.showAndWait();
+
+                cmbEventos.getSelectionModel().clearSelection();
+                cmbPersonas.getSelectionModel().clearSelection();
+
+            } catch(Exception ex) {
+                // SI EL EVENTO NO ESTÁ CONFIRMADO, CAE ACÁ Y MUESTRA TU MENSAJE DE ERROR
+                if(emUpdate.getTransaction().isActive()) {
+                    emUpdate.getTransaction().rollback(); // Deshacemos por si acaso
+                }
+                javafx.scene.control.Alert errorNegocio = new javafx.scene.control.Alert(javafx.scene.control.Alert.AlertType.WARNING);
+                errorNegocio.setTitle("Regla de Negocio");
+                errorNegocio.setHeaderText("Inscripción Rechazada");
+                errorNegocio.setContentText(ex.getMessage()); // Imprime literalmente lo que pusiste en el 'throw new Exception(...)'
+                errorNegocio.showAndWait();
+
+            } finally {
+                emUpdate.close();
+            }
+        });
+
+        panel.getChildren().addAll(lblTitulo, new Label("Evento:"), cmbEventos, new Label("Participante:"), cmbPersonas, btnInscribir);
         return panel;
     }
 
