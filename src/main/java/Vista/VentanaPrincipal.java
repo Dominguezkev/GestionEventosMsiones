@@ -36,8 +36,10 @@ public class VentanaPrincipal extends Application {
         Button btnAsignar = new Button("Asignar Organizadores");
         Button btnEstado = new Button("Cambiar Estado");
         Button btnInscripcion = new Button("Inscribir Participante");
+        Button btnProyecciones = new Button("Agregar Películas a Ciclo");
+        Button btnVerInscritos = new Button("Consultar Inscritos");
+        Button btnVerPersonas = new Button("Ver Listado de Personas");
         Button btnSalir = new Button("Salir del Sistema");
-
 
         btnEventos.setMaxWidth(Double.MAX_VALUE);
         btnListadoEventos.setMaxWidth(Double.MAX_VALUE); // Expandir el botón
@@ -45,6 +47,9 @@ public class VentanaPrincipal extends Application {
         btnAsignar.setMaxWidth(Double.MAX_VALUE);
         btnEstado.setMaxWidth(Double.MAX_VALUE);
         btnInscripcion.setMaxWidth(Double.MAX_VALUE);
+        btnProyecciones.setMaxWidth(Double.MAX_VALUE);
+        btnVerInscritos.setMaxWidth(Double.MAX_VALUE);
+        btnVerPersonas.setMaxWidth(Double.MAX_VALUE);
         btnSalir.setMaxWidth(Double.MAX_VALUE);
 
 
@@ -55,11 +60,13 @@ public class VentanaPrincipal extends Application {
         btnAsignar.setOnAction(e -> layoutPrincipal.setCenter(crearPanelAsignacion()));
         btnEstado.setOnAction(e -> layoutPrincipal.setCenter(crearPanelCambioEstado()));
         btnInscripcion.setOnAction(e -> layoutPrincipal.setCenter(crearPanelInscripcion()));
+        btnProyecciones.setOnAction(e -> layoutPrincipal.setCenter(crearPanelProyecciones()));
+        btnVerInscritos.setOnAction(e -> layoutPrincipal.setCenter(crearPanelParticipantesInscritos()));
+        btnVerPersonas.setOnAction(e -> layoutPrincipal.setCenter(crearPanelListadoPersonas()));
         btnSalir.setOnAction(e -> primaryStage.close());
 
-
         // Acordate de agregarlo al VBox del menú lateral:
-        menuLateral.getChildren().addAll(tituloMenu, btnEventos, btnListadoEventos, btnPersonas, btnAsignar, btnEstado, btnInscripcion, btnSalir);
+        menuLateral.getChildren().addAll(tituloMenu, btnEventos, btnListadoEventos, btnPersonas, btnAsignar, btnEstado, btnInscripcion, btnProyecciones, btnVerInscritos, btnVerPersonas, btnSalir);
 
         // 3. Crear el Área de Trabajo (Centro)
         StackPane areaTrabajo = new StackPane();
@@ -650,6 +657,241 @@ public class VentanaPrincipal extends Application {
         });
 
         panel.getChildren().addAll(lblTitulo, new Label("Evento:"), cmbEventos, new Label("Participante:"), cmbPersonas, btnInscribir);
+        return panel;
+    }
+
+    // Método para agregar Películas a un Ciclo de Cine
+    private VBox crearPanelProyecciones() {
+        VBox panel = new VBox(15);
+        panel.setPadding(new Insets(40));
+        panel.setAlignment(javafx.geometry.Pos.TOP_CENTER);
+
+        Label lblTitulo = new Label("Agregar Película a Ciclo de Cine");
+        lblTitulo.setFont(new Font("Arial", 22));
+        lblTitulo.setStyle("-fx-font-weight: bold;");
+
+        // 1. Desplegable solo para Ciclos de Cine
+        javafx.scene.control.ComboBox<String> cmbCiclos = new javafx.scene.control.ComboBox<>();
+        cmbCiclos.setPromptText("Seleccione un Ciclo de Cine");
+        cmbCiclos.setPrefWidth(350);
+
+        // 2. Campos de texto para la película
+        TextField txtTitulo = new TextField();
+        txtTitulo.setPromptText("Título de la Película");
+        txtTitulo.setPrefWidth(350);
+
+        TextField txtOrden = new TextField();
+        txtOrden.setPromptText("Orden de proyección (Ej: 1, 2, 3...)");
+        txtOrden.setPrefWidth(350);
+
+        // 3. Traemos SOLO los Ciclos de Cine de la BD
+        jakarta.persistence.EntityManagerFactory emf = jakarta.persistence.Persistence.createEntityManagerFactory("EventosPU");
+        jakarta.persistence.EntityManager em = emf.createEntityManager();
+
+        try {
+            // JPA es tan inteligente que si le pedimos CicloCine, filtra solos a los hijos
+            java.util.List<Modelo.CicloCine> ciclos = em.createQuery("SELECT c FROM CicloCine c", Modelo.CicloCine.class).getResultList();
+            for (Modelo.CicloCine c : ciclos) {
+                cmbCiclos.getItems().add(c.getId() + " - " + c.getNombre());
+            }
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        } finally {
+            em.close();
+        }
+
+        // 4. Botón Guardar
+        Button btnGuardar = new Button("Agregar Proyección");
+        btnGuardar.setStyle("-fx-background-color: #c0392b; -fx-text-fill: white; -fx-font-weight: bold;");
+
+        btnGuardar.setOnAction(e -> {
+            if (cmbCiclos.getValue() == null || txtTitulo.getText().isEmpty() || txtOrden.getText().isEmpty()) {
+                javafx.scene.control.Alert alerta = new javafx.scene.control.Alert(javafx.scene.control.Alert.AlertType.ERROR);
+                alerta.setContentText("Complete todos los campos para continuar.");
+                alerta.showAndWait();
+                return;
+            }
+
+            try {
+                Long idCiclo = Long.parseLong(cmbCiclos.getValue().split(" - ")[0]);
+                String titulo = txtTitulo.getText();
+                int orden = Integer.parseInt(txtOrden.getText());
+
+                jakarta.persistence.EntityManager emUpdate = emf.createEntityManager();
+                emUpdate.getTransaction().begin();
+
+                // Buscamos el Ciclo
+                Modelo.CicloCine ciclo = emUpdate.find(Modelo.CicloCine.class, idCiclo);
+
+                // ¡LA COMPOSICIÓN EN ACCIÓN! Creamos la proyeccion y la metemos adentro del ciclo
+                Modelo.Proyeccion nuevaProyeccion = new Modelo.Proyeccion(titulo, orden);
+                ciclo.agregarPelicula(nuevaProyeccion);
+
+                // Al guardar el ciclo, JPA guarda automáticamente la proyección por el CascadeType.ALL
+                emUpdate.merge(ciclo);
+                emUpdate.getTransaction().commit();
+
+                javafx.scene.control.Alert exito = new javafx.scene.control.Alert(javafx.scene.control.Alert.AlertType.INFORMATION);
+                exito.setContentText("¡La película '" + titulo + "' se agregó al ciclo exitosamente!");
+                exito.showAndWait();
+
+                emUpdate.close();
+
+                // Limpiamos los campos
+                txtTitulo.clear();
+                txtOrden.clear();
+
+            } catch (NumberFormatException ex) {
+                javafx.scene.control.Alert alertaNum = new javafx.scene.control.Alert(javafx.scene.control.Alert.AlertType.WARNING);
+                alertaNum.setContentText("El orden debe ser un número entero.");
+                alertaNum.showAndWait();
+            } catch (Exception ex) {
+                ex.printStackTrace();
+            }
+        });
+
+        panel.getChildren().addAll(lblTitulo, new Label("Ciclo de Cine:"), cmbCiclos, new Label("Película:"), txtTitulo, new Label("Orden:"), txtOrden, btnGuardar);
+        return panel;
+    }
+
+    // Método para ver la lista de participantes de un evento específico
+    private VBox crearPanelParticipantesInscritos() {
+        VBox panel = new VBox(15);
+        panel.setPadding(new Insets(40));
+        panel.setAlignment(javafx.geometry.Pos.TOP_CENTER);
+
+        Label lblTitulo = new Label("Ver Participantes Inscritos");
+        lblTitulo.setFont(new Font("Arial", 22));
+        lblTitulo.setStyle("-fx-font-weight: bold;");
+
+        // 1. Selector de Eventos
+        javafx.scene.control.ComboBox<String> cmbEventos = new javafx.scene.control.ComboBox<>();
+        cmbEventos.setPromptText("Seleccione un Evento");
+        cmbEventos.setPrefWidth(350);
+
+        jakarta.persistence.EntityManagerFactory emf = jakarta.persistence.Persistence.createEntityManagerFactory("EventosPU");
+        jakarta.persistence.EntityManager em = emf.createEntityManager();
+
+        try {
+            java.util.List<Modelo.Evento> eventos = em.createQuery("SELECT e FROM Evento e", Modelo.Evento.class).getResultList();
+            for (Modelo.Evento e : eventos) {
+                cmbEventos.getItems().add(e.getId() + " - " + e.getNombre());
+            }
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        } finally {
+            em.close();
+        }
+
+        // 2. Tabla para mostrar a las personas
+        javafx.scene.control.TableView<Modelo.Persona> tabla = new javafx.scene.control.TableView<>();
+
+        javafx.scene.control.TableColumn<Modelo.Persona, Long> colId = new javafx.scene.control.TableColumn<>("ID");
+        colId.setCellValueFactory(new javafx.scene.control.cell.PropertyValueFactory<>("id"));
+
+        // ATENCIÓN ACÁ: Según tu UML, la variable se llama nombreCompleto.
+        // Si tu clase Persona tiene 'nombre' a secas, cambiale "nombreCompleto" por "nombre"
+        javafx.scene.control.TableColumn<Modelo.Persona, String> colNombre = new javafx.scene.control.TableColumn<>("Nombre del Participante");
+        colNombre.setCellValueFactory(new javafx.scene.control.cell.PropertyValueFactory<>("nombreCompleto"));
+        colNombre.setPrefWidth(200);
+
+        javafx.scene.control.TableColumn<Modelo.Persona, String> colDni = new javafx.scene.control.TableColumn<>("DNI");
+        colDni.setCellValueFactory(new javafx.scene.control.cell.PropertyValueFactory<>("dni"));
+
+        tabla.getColumns().addAll(colId, colNombre, colDni);
+        javafx.scene.layout.VBox.setVgrow(tabla, javafx.scene.layout.Priority.ALWAYS); // Hace que la tabla ocupe el espacio libre
+
+        // 3. Botón para buscar
+        Button btnBuscar = new Button("Ver Lista");
+        btnBuscar.setStyle("-fx-background-color: #2980b9; -fx-text-fill: white; -fx-font-weight: bold;");
+
+        btnBuscar.setOnAction(e -> {
+            if (cmbEventos.getValue() == null) {
+                return; // Si no eligió nada, no hace nada
+            }
+
+            Long idEvento = Long.parseLong(cmbEventos.getValue().split(" - ")[0]);
+            jakarta.persistence.EntityManager emBusqueda = emf.createEntityManager();
+
+            try {
+                // Hacemos un JOIN FETCH para traer el evento y su lista de participantes al mismo tiempo (evita el Lazy error)
+                Modelo.Evento evento = emBusqueda.createQuery(
+                                "SELECT e FROM Evento e LEFT JOIN FETCH e.participantes WHERE e.id = :id", Modelo.Evento.class)
+                        .setParameter("id", idEvento)
+                        .getSingleResult();
+
+                // Cargamos los datos en la tabla
+                javafx.collections.ObservableList<Modelo.Persona> datos = javafx.collections.FXCollections.observableArrayList(evento.getParticipantes());
+                tabla.setItems(datos);
+
+                // Un detalle visual prolijo:
+                if (datos.isEmpty()) {
+                    javafx.scene.control.Alert info = new javafx.scene.control.Alert(javafx.scene.control.Alert.AlertType.INFORMATION);
+                    info.setHeaderText(null);
+                    info.setContentText("Este evento todavía no tiene participantes inscritos.");
+                    info.showAndWait();
+                }
+
+            } catch (Exception ex) {
+                ex.printStackTrace();
+            } finally {
+                emBusqueda.close();
+            }
+        });
+
+        panel.getChildren().addAll(lblTitulo, new Label("Evento a consultar:"), cmbEventos, btnBuscar, tabla);
+        return panel;
+    }
+
+    // Método para ver la tabla con todas las personas registradas
+    private VBox crearPanelListadoPersonas() {
+        VBox panel = new VBox(15);
+        panel.setPadding(new Insets(40));
+        panel.setAlignment(javafx.geometry.Pos.TOP_CENTER);
+
+        Label lblTitulo = new Label("Padrón de Personas Registradas");
+        lblTitulo.setFont(new Font("Arial", 22));
+        lblTitulo.setStyle("-fx-font-weight: bold;");
+
+        // 1. Crear la Tabla
+        javafx.scene.control.TableView<Modelo.Persona> tabla = new javafx.scene.control.TableView<>();
+
+        // 2. Crear las Columnas (Basado en tu diagrama UML)
+        javafx.scene.control.TableColumn<Modelo.Persona, Long> colId = new javafx.scene.control.TableColumn<>("ID");
+        colId.setCellValueFactory(new javafx.scene.control.cell.PropertyValueFactory<>("id"));
+
+        // ATENCIÓN: Si tu variable en Persona.java se llama solo "nombre", cambiá "nombreCompleto" por "nombre" acá adentro
+        javafx.scene.control.TableColumn<Modelo.Persona, String> colNombre = new javafx.scene.control.TableColumn<>("Nombre Completo");
+        colNombre.setCellValueFactory(new javafx.scene.control.cell.PropertyValueFactory<>("nombreCompleto"));
+        colNombre.setPrefWidth(200);
+
+        javafx.scene.control.TableColumn<Modelo.Persona, String> colDni = new javafx.scene.control.TableColumn<>("DNI");
+        colDni.setCellValueFactory(new javafx.scene.control.cell.PropertyValueFactory<>("dni"));
+
+        javafx.scene.control.TableColumn<Modelo.Persona, String> colCorreo = new javafx.scene.control.TableColumn<>("Correo Electrónico");
+        colCorreo.setCellValueFactory(new javafx.scene.control.cell.PropertyValueFactory<>("correoElectronico"));
+        colCorreo.setPrefWidth(200);
+
+        // Agregamos las columnas
+        tabla.getColumns().addAll(colId, colNombre, colDni, colCorreo);
+        javafx.scene.layout.VBox.setVgrow(tabla, javafx.scene.layout.Priority.ALWAYS);
+
+        // 3. Traer los datos con JPA
+        jakarta.persistence.EntityManagerFactory emf = jakarta.persistence.Persistence.createEntityManagerFactory("EventosPU");
+        jakarta.persistence.EntityManager em = emf.createEntityManager();
+
+        try {
+            java.util.List<Modelo.Persona> listaPersonas = em.createQuery("SELECT p FROM Persona p", Modelo.Persona.class).getResultList();
+            javafx.collections.ObservableList<Modelo.Persona> datosTabla = javafx.collections.FXCollections.observableArrayList(listaPersonas);
+            tabla.setItems(datosTabla);
+        } catch (Exception ex) {
+            System.err.println("Error al cargar las personas: ");
+            ex.printStackTrace();
+        } finally {
+            em.close();
+        }
+
+        panel.getChildren().addAll(lblTitulo, tabla);
         return panel;
     }
 

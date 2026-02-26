@@ -1,6 +1,9 @@
 package Modelo;
 
 import jakarta.persistence.Entity;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.OneToMany;
+
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -39,4 +42,20 @@ public class CicloCine extends Evento{
     public void setTieneCharla(boolean tieneCharla) {
         this.tieneCharla = tieneCharla;
     }
+
+    // El orphanRemoval = true es la clave de la Composición fuerte
+    @OneToMany(cascade = jakarta.persistence.CascadeType.ALL, orphanRemoval = true)
+    @JoinColumn(name = "ciclo_id") // Le avisa a la base de datos a quién le pertenece la película
+    private java.util.List<Proyeccion> peliculas = new java.util.ArrayList<>();
+
+    // Método para agregar películas al ciclo
+    public void agregarPelicula(Proyeccion p) {
+        this.peliculas.add(p);
+    }
+
+    // Y el getter por si lo necesitamos después
+    public java.util.List<Proyeccion> getPeliculas() {
+        return peliculas;
+    }
+
 }
